@@ -1,0 +1,27 @@
+{
+    "author": "ken.caron@gmail.com",
+    "dependencies": {},
+    "keywords": [],
+    "name": "rocky-test",
+    "pebble": {
+        "capabilities": [
+            "configurable"
+        ],
+        "displayName": "rocky-test",
+        "enableMultiJS": true,
+        "messageKeys": [],
+        "projectType": "rocky",
+        "resources": {
+            "media": []
+        },
+        "sdkVersion": "3",
+        "targetPlatforms": [
+            "chalk"
+        ],
+        "uuid": "188613e3-052e-4e88-bbe9-1129cd5411a5",
+        "watchapp": {
+            "watchface": false
+        }
+    },
+    "version": "1.0.0"
+}
