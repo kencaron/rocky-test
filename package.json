@@ -3,9 +3,6 @@
     "dependencies": {},
     "keywords": [],
     "name": "rocky-test",
-    "dependencies": {
-        "pebble-clay": "^1.0.2"
-    },
     "pebble": {
         "capabilities": [
             "configurable"
