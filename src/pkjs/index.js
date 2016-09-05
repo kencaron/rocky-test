@@ -13,6 +13,8 @@ Pebble.addEventListener('webviewclosed', function(e) {
 
   // Return settings from Config Page to watch
   var settings = clay.getSettings(e.response, false);
+  
+  console.log('PKJS ' + JSON.stringify(settings));
 
   // Flatten to match localStorage version
   var settingsFlat = {};

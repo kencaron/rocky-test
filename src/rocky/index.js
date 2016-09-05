@@ -1,71 +1,141 @@
 var rocky = require('rocky');
 
-
 var settings = null;
 
-var defaultSettings = {
-  ForegroundColor: 'black',
-  BackgroundColor: 'white'
+var watchface = {
+	initialized: false
 };
 
-rocky.on('draw', function(event) {
-  // Get the CanvasRenderingContext2D object
-  var ctx = event.context;
+function Rectangle(attrs) {
+	this.attrs = attrs;
+	
+	this.draw = function (ctx) {
+		//console.log('drawshape');
+		//console.log(JSON.stringify(this.attrs));
+		
+		ctx.fillStyle = this.attrs.fillStyle;
+		ctx.fillRect(
+			this.attrs.startX,
+			this.attrs.startY,
+			this.attrs.width,
+			this.attrs.height
+		);
+		
+	};
+}
 
-  // Clear the screen
-  ctx.clearRect(0, 0, ctx.canvas.clientWidth, ctx.canvas.clientHeight);
+function TextField(attrs) {
+	this.attrs = attrs;
+	
+	this.draw = function (ctx) {
+		//console.log('drawshape');
+		//console.log(JSON.stringify(this.attrs));
+		
+		ctx.fillStyle = this.attrs.fillStyle;
+		ctx.textAlign = this.attrs.textAlign;
+		
+		ctx.fillText(this.attrs.value, this.attrs.startX, this.attrs.startY, this.attrs.width);
+	};
+}
 
-  // Determine the width and height of the display
-  var w = ctx.canvas.unobstructedWidth;
-  var h = ctx.canvas.unobstructedHeight;
-  
-  var foregroundColor = cssColor(defaultSettings.ForegroundColor);
-  var backgroundColor = cssColor(defaultSettings.BackgroundColor);
-
-  if (settings) {
-    foregroundColor = cssColor(settings.ForegroundColor);
-    backgroundColor = cssColor(settings.BackgroundColor);
-  }
-  
-  // Current date/time
-  var d = new Date();
-
-  // Set the text color
-  ctx.fillStyle = backgroundColor;
-  
-  //set the bg color
-  ctx.fillRect(0, 0, w, h);
-
-  
-  ctx.fillStyle = foregroundColor;
-  // Center align the text
-  ctx.textAlign = 'center';
-
-  // Display the time, in the middle of the screen
-  ctx.fillText(d.toLocaleTimeString(), w / 2, h / 2, w);
+var background = new Rectangle({
+	fillStyleKey: 'colorBackground',
+	fillStyle   : 'white',
+	startX      : 0,
+	startY      : 0,
+	width       : 0,
+	height      : 0,
 });
 
-rocky.on('message', function(event) {
-  console.log('message', JSON.stringify(event));
-  console.log('data', JSON.stringify(event.data));
-  settings = event.data;
-  rocky.requestDraw();
+var label = new TextField({
+	fillStyleKey: 'colorLabel',
+	fillStyle   : 'black',
+	textAlign   : 'center',
+	font: '14px Gothic',
+	value       : new Date().toLocaleTimeString(),
+	startX      : 0,
+	startY      : 0,
+	width: 0,
+	height: 15
 });
 
-rocky.on('minutechange', function(event) {
-  // Display a message in the system logs
-  console.log("Another minute with your Pebble!");
+var fieldsWithSettings = [label, background];
 
-  // Request the screen to be redrawn on next pass
-  rocky.requestDraw();
+//The First draw, setting up valuables that don't have to be recalculated all the time
+function init(canvas) {
+	
+	// Determine the width and height of the display
+	background.attrs.width  = canvas.unobstructedWidth;
+	background.attrs.height = canvas.unobstructedHeight;
+	
+	label.attrs.startX = (background.attrs.width / 2);
+	label.attrs.startY = (background.attrs.height / 2)
+	label.attrs.width = background.attrs.width;
+	
+	// Request settings from pebblekit
+	rocky.postMessage({command: 'settings'});
+	
+	watchface.initialized = true;
+};
+
+//Messy but a way to apply settings via convention.
+// Currently only supports fillColor application by providing a fillColorKey to a field
+// To be expanded to support toggles and values, probably with a prefix paradign for appkeys by type
+function applySettings() {
+	//Apply settings if present
+	if (settings) {
+		var drawQueued = false;
+		
+		//Iterate all settings objects
+		Object.keys(settings).forEach(function (key) {
+			//find the corrosponding field to put setting on
+			var matches = fieldsWithSettings.filter(function (field) {
+				return (field.attrs.fillStyleKey && field.attrs.fillStyleKey === key);
+			});
+			
+			if (matches.length) {
+				matches.forEach(function(match) {
+					match.attrs.fillStyle = cssColor(settings[key]);
+				});
+				
+				drawQueued = true;
+				
+			}
+		});
+		
+		if (drawQueued) {
+			rocky.requestDraw();
+		}
+	}
+}
+
+rocky.on('draw', function (event) {
+	console.log('Rocky draw invoked.');
+	
+	// Get the CanvasRenderingContext2D object
+	var ctx = event.context;
+	
+	if (!watchface.initialized) {
+		init(ctx.canvas);
+	} else {
+		// Clear the screen
+		ctx.clearRect(0, 0, ctx.canvas.clientWidth, ctx.canvas.clientHeight);
+	}
+	
+	background.draw(ctx);
+	label.draw(ctx);
 });
 
-rocky.postMessage({command: 'settings'});
+rocky.on('message', function (event) {
+	settings = event.data;
+	applySettings();
+});
 
+rocky.on('minutechange', function (event) {
+	rocky.requestDraw();
+});
 
-
-
-
+////TODO below be libs I want to export into files
 // Borrowed from Clay.js
 
 /**
@@ -73,15 +143,17 @@ rocky.postMessage({command: 'settings'});
  * @returns {string}
  */
 function cssColor(color) {
-  if (typeof color === 'number') {
-    color = color.toString(16);
-  } else if (!color) {
-    return 'transparent';
-  }
-
-  color = padColorString(color);
-
-  return '#' + color;
+	if (typeof color === 'number') {
+		color = color.toString(16);
+	} else if (!color) {
+		return 'transparent';
+	}
+	
+	color = padColorString(color);
+	
+	console.log('cssColor returning', '#' + color);
+	
+	return '#' + color;
 }
 
 /**
@@ -89,11 +161,11 @@ function cssColor(color) {
  * @return {string}
  */
 function padColorString(color) {
-  color = color.toLowerCase();
-
-  while (color.length < 6) {
-    color = '0' + color;
-  }
-
-  return color;
+	color = color.toLowerCase();
+	
+	while (color.length < 6) {
+		color = '0' + color;
+	}
+	
+	return color;
 }
